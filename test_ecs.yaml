@@ -1,0 +1,74 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create ECS Cluster
+
+Parameters:
+  ClusterName:
+    Type: String
+    Default: test-cfn-codepipeline-cluster
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  SourceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup::Id
+  DesiredCount:
+    Type: Number
+    Default: 1  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  ImageECR:
+   Type: String
+   Default: 823904882346.dkr.ecr.us-east-1.amazonaws.com/test-fargate-git:latest
+
+Resources:
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: !Ref ClusterName
+  ECSService: 
+    Type: AWS::ECS::Service
+    Properties: 
+      Cluster: !Ref ECSCluster
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: 
+        Ref: "TaskDefinition"
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref SourceSecurityGroup
+          Subnets: !Ref Subnets
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${AWS::StackName}-simple-app
+      RequiresCompatibilities: ["FARGATE",]
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      Memory: 512
+      Cpu: 256
+      NetworkMode: awsvpc
+      RuntimePlatform:
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: simple-app
+          Image: !Ref ImageECR
+          Essential: true
+          Memory: 256
+          PortMappings:
+            - ContainerPort: 80
+      

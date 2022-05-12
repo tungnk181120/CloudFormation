@@ -1,0 +1,12 @@
+digraph "template" {
+IamRoleCbd [label="IamRoleCbd\n<AWS::IAM::Role>"];
+IamRoleCpl [label="IamRoleCpl\n<AWS::IAM::Role>"];
+CodeCommitRepository [label="CodeCommitRepository\n<AWS::CodeCommit::Repository>"];
+ArtifactS3Bucket [label="ArtifactS3Bucket\n<AWS::S3::Bucket>"];
+CbdProject1 [label="CbdProject1\n<AWS::CodeBuild::Project>"];
+CplImageUpdate [label="CplImageUpdate\n<AWS::CodePipeline::Pipeline>"];
+CbdProject1 -> IamRoleCbd  [key=0, label=Ref];
+CplImageUpdate -> ArtifactS3Bucket  [key=0, label=Ref];
+CplImageUpdate -> CbdProject1  [key=0, label=Ref];
+CplImageUpdate -> IamRoleCpl  [key=0, label=GetAtt];
+}

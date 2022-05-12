@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create AWS CloudFormation Training Repositorys
+Parameters:
+  EmployeeID:
+    Description: "Enter your employee ID like 7148"
+    Type: String
+#############################################################
+# Resources
+#############################################################
+Resources:
+## Role
+# Codebuild Role
+  IamRoleCbd:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [codebuild.amazonaws.com]
+            Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${EmployeeID}-test-iam-policy-cdb"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'codebuild:StartBuild'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'cloudtrail:LookupEvents'
+                  - 'elasticloadbalancing:*'
+                  - 'rds:ListTagsForResource'
+                  - 'rds:CreateDBSnapshot'
+                  - 'iam:PassRole'
+                  - 'codecommit:*'
+                  - 'ecs:*'
+                  - 'ecr:*'
+                  - 's3:*'
+                  - 'ec2:*'
+                Resource: '*'
+      RoleName: !Sub "${EmployeeID}-test-iam-role-cbd"
+# Pipeline Role
+  IamRoleCpl:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [codepipeline.amazonaws.com]
+            Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${EmployeeID}-test-iam-policy-cdp"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - "iam:PassRole"
+                Condition: 
+                  StringEqualsIfExists: 
+                    iam:PassedToService: 
+                      - "cloudformation.amazonaws.com"
+                      - "elasticbeanstalk.amazonaws.com"
+                      - "ec2.amazonaws.com"
+                      - "ecs-tasks.amazonaws.com"
+                Resource: "*"
+              - Effect: Allow
+                Action: 
+                  - "codecommit:CancelUploadArchive"
+                  - "codecommit:GetBranch"
+                  - "codecommit:GetCommit"
+                  - "codecommit:GetUploadArchiveStatus"
+                  - "codecommit:UploadArchive"
+                  - "codebuild:BatchGetBuilds"
+                  - "codebuild:StartBuild"
+                  - "codedeploy:CreateDeployment"
+                  - "codedeploy:GetApplication"
+                  - "codedeploy:GetApplicationRevision"
+                  - "codedeploy:GetDeployment"
+                  - "codedeploy:GetDeploymentConfig"
+                  - "codedeploy:RegisterApplicationRevision"
+                Resource: "*"
+              - Effect: Allow
+                Action: 
+                  - "lambda:InvokeFunction"
+                  - "lambda:ListFunctions"
+                  - "opsworks:CreateDeployment"
+                  - "opsworks:DescribeApps"
+                  - "opsworks:DescribeCommands"
+                  - "opsworks:DescribeDeployments"
+                  - "opsworks:DescribeInstances"
+                  - "opsworks:DescribeStacks"
+                  - "opsworks:UpdateApp"
+                  - "opsworks:UpdateStack"
+                  - "devicefarm:ListProjects"
+                  - "devicefarm:ListDevicePools"
+                  - "devicefarm:GetRun"
+                  - "devicefarm:GetUpload"
+                  - "devicefarm:CreateUpload"
+                  - "devicefarm:ScheduleRun"
+                  - "servicecatalog:ListProvisioningArtifacts"
+                  - "servicecatalog:CreateProvisioningArtifact"
+                  - "servicecatalog:DescribeProvisioningArtifact"
+                  - "servicecatalog:DeleteProvisioningArtifact"
+                  - "servicecatalog:UpdateProduct"
+                Resource: "*"
+              - Effect: Allow
+                Action: 
+                  - "elasticbeanstalk:*"
+                  - "elasticloadbalancing:*"
+                  - "autoscaling:*"
+                  - "cloudwatch:*"
+                  - "cloudformation:*"
+                  - "ec2:*"
+                  - "s3:*"
+                  - "sns:*"
+                  - "rds:*"
+                  - "sqs:*"
+                  - "ecs:*"
+                  - "ecr:*"
+                Resource: "*"
+      RoleName: !Sub "${EmployeeID}test-iam-role-cdp"
+## Pipeline --------------------------------------------------------------------
+# App Image Build
+  CodeCommitRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Sub "test-code-commit-repo-${EmployeeID}"
+      Code:
+        S3:
+          Bucket: tai-test-bucket
+          Key: Training_B06.zip
+  ArtifactS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${EmployeeID}-test-s3"
+  CbdProject1:
+    Type: AWS::CodeBuild::Project
+    Properties:
+        Name: !Sub "${EmployeeID}-test-cdb-nginx-image"
+        Cache:
+          Type: LOCAL
+          Modes:
+            - LOCAL_DOCKER_LAYER_CACHE
+            - LOCAL_SOURCE_CACHE
+        Source:
+          Type: CODECOMMIT
+          BuildSpec: buildspec.yml
+          Location: !Sub "https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/test-code-commit-repo-${EmployeeID}"
+        ServiceRole: !Ref IamRoleCbd
+        Artifacts:
+            Type: NO_ARTIFACTS
+        Environment:
+            Type: LINUX_CONTAINER
+            ComputeType: BUILD_GENERAL1_SMALL
+            Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
+            PrivilegedMode: true
+            EnvironmentVariables:
+              - Name: AWS_DEFAULT_REGION
+                Value: !Ref "AWS::Region"
+              - Name: AWS_ACCOUNT_ID
+                Value: !Ref "AWS::AccountId"
+              - Name: EMPLOYEE_ID
+                Value: !Ref EmployeeID
+# Image Update
+  CplImageUpdate:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub "${EmployeeID}-test-cdp-nginx-image"
+      RestartExecutionOnUpdate: false
+      RoleArn: !GetAtt IamRoleCpl.Arn
+      ArtifactStore: 
+        Type: S3
+        Location: !Ref ArtifactS3Bucket
+      Stages: 
+        - Name: Source
+          Actions: 
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              Configuration:
+                RepositoryName: !Sub "test-code-commit-repo-${EmployeeID}"
+                BranchName: master
+                PollForSourceChanges: false
+              RunOrder: 1
+              OutputArtifacts:
+                - Name: SOURCE
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CbdProject1
+              RunOrder: 2
+              InputArtifacts:
+                - Name: SOURCE
+              OutputArtifacts:
+                - Name: BUILD

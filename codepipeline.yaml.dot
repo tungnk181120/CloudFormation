@@ -1,0 +1,11 @@
+digraph "template" {
+CodeBuildServiceRole [label="CodeBuildServiceRole\n<AWS::IAM::Role>"];
+CodePipelineServiceRole [label="CodePipelineServiceRole\n<AWS::IAM::Role>"];
+DeploymentArtifactBucket [label="DeploymentArtifactBucket\n<AWS::S3::Bucket>"];
+CodeBuildProject [label="CodeBuildProject\n<AWS::CodeBuild::Project>"];
+CodePipeline [label="CodePipeline\n<AWS::CodePipeline::Pipeline>"];
+CodeBuildProject -> CodeBuildServiceRole  [key=0, label=GetAtt];
+CodePipeline -> CodeBuildProject  [key=0, label=Ref];
+CodePipeline -> DeploymentArtifactBucket  [key=0, label=Ref];
+CodePipeline -> CodePipelineServiceRole  [key=0, label=GetAtt];
+}

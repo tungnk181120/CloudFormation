@@ -1,0 +1,7 @@
+digraph "template" {
+ECSCluster [label="ECSCluster\n<AWS::ECS::Cluster>"];
+ECSService [label="ECSService\n<AWS::ECS::Service>"];
+TaskDefinition [label="TaskDefinition\n<AWS::ECS::TaskDefinition>"];
+ECSService -> ECSCluster  [key=0, label=Ref];
+ECSService -> TaskDefinition  [key=0, label=Ref];
+}
