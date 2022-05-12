@@ -1,0 +1,22 @@
+digraph "template" {
+VPC [label="VPC\n<AWS::EC2::VPC>"];
+InternetGateway [label="InternetGateway\n<AWS::EC2::InternetGateway>"];
+InternetGatewayAttachment [label="InternetGatewayAttachment\n<AWS::EC2::VPCGatewayAttachment>"];
+Subnet1 [label="Subnet1\n<AWS::EC2::Subnet>"];
+Subnet2 [label="Subnet2\n<AWS::EC2::Subnet>"];
+RouteTable [label="RouteTable\n<AWS::EC2::RouteTable>"];
+DefaultRoute [label="DefaultRoute\n<AWS::EC2::Route>"];
+Subnet1RouteTableAssociation [label="Subnet1RouteTableAssociation\n<AWS::EC2::SubnetRouteTableAssociation>"];
+Subnet2RouteTableAssociation [label="Subnet2RouteTableAssociation\n<AWS::EC2::SubnetRouteTableAssociation>"];
+InternetGatewayAttachment -> InternetGateway  [key=0, label=Ref];
+InternetGatewayAttachment -> VPC  [key=0, label=Ref];
+Subnet1 -> VPC  [key=0, label=Ref];
+Subnet2 -> VPC  [key=0, label=Ref];
+RouteTable -> VPC  [key=0, label=Ref];
+DefaultRoute -> RouteTable  [key=0, label=Ref];
+DefaultRoute -> InternetGateway  [key=0, label=Ref];
+Subnet1RouteTableAssociation -> RouteTable  [key=0, label=Ref];
+Subnet1RouteTableAssociation -> Subnet1  [key=0, label=Ref];
+Subnet2RouteTableAssociation -> RouteTable  [key=0, label=Ref];
+Subnet2RouteTableAssociation -> Subnet2  [key=0, label=Ref];
+}

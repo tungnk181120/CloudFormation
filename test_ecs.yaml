@@ -13,11 +13,10 @@ Parameters:
   DesiredCount:
     Type: Number
     Default: 1  
-  VpcId:
-    Type: AWS::EC2::VPC::Id
   ImageECR:
    Type: String
-   Default: 823904882346.dkr.ecr.us-east-1.amazonaws.com/test-fargate-git:latest
+   Default: !ImportValue test-ecr-repo-ECRRepoArn
+
 
 Resources:
   TaskExecutionRole:

@@ -8,7 +8,7 @@ Parameters:
   GitHubOAuthToken:
     Type: String
     Description: GitHub oauth token.  This user must have admin access to the repo.
-    Default: abcd
+    Default: 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
     NoEcho: true
   GitHubRepoOwner:
     Type: String
@@ -179,11 +179,12 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
         PrivilegedMode: true
+        
       Source:
         Type: CODEPIPELINE
       Triggers:
         Webhook: false
-      TimeoutInMinutes: 10
+
 
   # CodePipeline
   CodePipeline:

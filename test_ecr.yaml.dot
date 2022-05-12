@@ -1,0 +1,3 @@
+digraph "template" {
+MyRepository [label="MyRepository\n<AWS::ECR::Repository>"];
+}

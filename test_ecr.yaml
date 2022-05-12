@@ -1,0 +1,21 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Create ECR repo
+
+Parameters:
+  RepoName:
+    Type: String
+    Default: test-cfn-ecr
+
+Resources:
+  MyRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepoName
+Outputs:    
+  ECRRepoArn:
+    Value: !GetAtt MyRepository.Arn 
+    Export:
+     Name: 
+       'Fn::Sub': '${AWS::StackName}-ECRRepoArn'
