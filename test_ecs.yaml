@@ -13,10 +13,6 @@ Parameters:
   DesiredCount:
     Type: Number
     Default: 1  
-  ImageECR:
-   Type: String
-   Default: !ImportValue test-ecr-repo-ECRRepoArn
-
 
 Resources:
   TaskExecutionRole:
@@ -65,7 +61,7 @@ Resources:
         OperatingSystemFamily: LINUX
       ContainerDefinitions:
         - Name: simple-app
-          Image: !Ref ImageECR
+          Image: !ImportValue test-ecr-repo-ECRRepoArn
           Essential: true
           Memory: 256
           PortMappings:
