@@ -198,7 +198,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: ThirdParty
-                Version: 1
+                Version: 2
                 Provider: GitHub
               OutputArtifacts:
                 - Name: SourceCodeOutputArtifact

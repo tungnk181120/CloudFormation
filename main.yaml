@@ -1,7 +1,6 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: Create VPC
 
 Parameters:
   Name:
@@ -19,8 +18,6 @@ Parameters:
   RepoName:
     Description: ECR Repo name
     Type: String
-    Default: test-cfn-ecr
-  
   ClusterName:
     Type: String
     Default: test-cfn-codepipeline-cluster
@@ -346,6 +343,8 @@ Resources:
         Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
         PrivilegedMode: true
         EnvironmentVariables:
+          - Name: ECRRepoURI
+            Value: !GetAtt MyEcrRepository.RepositoryUri
           - Name: ECR_reponame
             Value: !Ref RepoName
       Source:
@@ -406,7 +405,6 @@ Resources:
       ArtifactStore:
         Type: S3
         Location: !Ref DeploymentArtifactBucket
-      Name: !Ref ProjectName  
   
 
 
