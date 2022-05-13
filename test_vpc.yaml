@@ -89,6 +89,17 @@ Resources:
       RouteTableId: !Ref RouteTable
       SubnetId: !Ref Subnet2
 
+  SecurityGroups:
+      Type: AWS::EC2::SecurityGroup
+      Properties: 
+        GroupName: test-cfn-sg
+        GroupDescription: test sg
+        SecurityGroupIngress: 
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0
+        VpcId: !Ref VPC
 
 Outputs:
   Subnets:
