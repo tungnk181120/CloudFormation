@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create AWS Resources From CFN template for microservice
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Network Configuration
+      Parameters:
+      - VPCID
+      - PrivateSubnet1
+      - PrivateSubnet2
+      - PublicSubnet1
+      - PublicSubnet2
+    - Label:
+        default: Common Parameters
+      Parameters:
+      - inProjectName
+      - inVpcEnv
+      - inArtifactBucketName
+      - inLoggingBucketName
+      - inTemplateBucketName
+      # - inTemplateBucketPrefix
+Parameters:
+  inProjectName:
+    Description: "Input Project Name"
+    Type: String
+    Default: user-micros
+  inVpcEnv:
+    Description: "VPC Environment"
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+  VPCID:
+    Description: "Enter the ID of VPC"
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnet1:
+    Description: "Enter the ID of the Private subnet 1"
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnet2:
+    Description: "Enter the ID of the Private subnet 2"
+    Type: AWS::EC2::Subnet::Id 
+  PublicSubnet1:
+    Description: "Enter the ID of the Public subnet 1"
+    Type: AWS::EC2::Subnet::Id    
+  PublicSubnet2:
+    Description: "Enter the ID of the Public subnet 2"
+    Type: AWS::EC2::Subnet::Id
+  BranchName:
+    Description: "Enter the branch name of codecommit repository to deploy"
+    Type: String
+    Default: master
+  inArtifactBucketName:
+    Description: Select S3 BucketName where artifact
+    Type: String
+    Default: artifact
+  inLoggingBucketName:
+    Description: Select S3 BucketName where store cloudfront logs
+    Type: String
+    Default: logging
+  inTemplateBucketName:
+    Description: Select S3 BucketName where CloudFormation Templates stored.
+    Type: String
+    Default: user-micros-cf-template
+  # inTemplateBucketPrefix:
+  #   Description: S3 bucket prefix where CloudFormation Templates stored
+  #   Type: String
+  #   Default: frontend
+Resources:
+  S3Stack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        Fn::Sub: https://${inTemplateBucketName}.s3.${AWS::Region}.${AWS::URLSuffix}/deploy_nest_s3_cloudfont.yml
+      Parameters:
+        ProjectName: !Ref inProjectName
+        VpcEnv: !Ref inVpcEnv
+        ArtifactBucketName: !Ref inArtifactBucketName
+        LoggingBucketName: !Ref inLoggingBucketName

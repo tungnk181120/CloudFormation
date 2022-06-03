@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create S3 Bucket and Cloudfront for frontend
+Parameters:
+  ArtifactBucketName:
+    Description: Select S3 BucketName where store build artifact
+    Type: String
+  LoggingBucketName:
+    Description: Select S3 BucketName where store cloudfront logs
+    Type: String
+  ProjectName:
+    Description: "Input Project Name"
+    Type: String
+  VpcEnv:
+    Description: "VPC Environment"
+    Type: String
+  
+Resources:
+  # Create S3 bucket
+  ArtifactBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub ${ProjectName}-${VpcEnv}-s3-${ArtifactBucketName}
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Suspended
+  MemberFrontendBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub ${ProjectName}-${VpcEnv}-s3-member
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Suspended
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls : true
+        BlockPublicPolicy : true
+        IgnorePublicAcls : true
+        RestrictPublicBuckets : true
+  LoginFrontendBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub ${ProjectName}-${VpcEnv}-s3-login
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Suspended
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls : true
+        BlockPublicPolicy : true
+        IgnorePublicAcls : true
+        RestrictPublicBuckets : true
+  # The Amazon S3 bucket policy for securing the bucket hosting the application
+  BucketPolicyForLogin:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Id: MyPolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PolicyForCloudFrontPrivateContent
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt CFOriginAccessIdentityForLogin.S3CanonicalUserId
+            Action: 's3:GetObject*'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref LoginFrontendBucket
+                - /*
+      Bucket: !Ref LoginFrontendBucket
+  BucketPolicyForMember:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Id: MyPolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PolicyForCloudFrontPrivateContent
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt CFOriginAccessIdentityForMember.S3CanonicalUserId
+            Action: 's3:GetObject*'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref MemberFrontendBucket
+                - /*
+      Bucket: !Ref MemberFrontendBucket
+  # The Amazon S3 bucket into which access logs from S3 (for the application) and CloudFront will be put
+  LoggingBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub ${ProjectName}-${VpcEnv}-${LoggingBucketName}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls : true
+        BlockPublicPolicy : true
+        IgnorePublicAcls : true
+        RestrictPublicBuckets : true
+      LifecycleConfiguration:
+        Rules:
+          - Id: "LogExpirationRule"
+            Status: "Enabled"
+            ExpirationInDays: 30       
+      AccessControl: LogDeliveryWrite
+      VersioningConfiguration:
+        Status: Suspended
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: 'AES256'
+    DeletionPolicy: Delete
+  # The Amazon CloudFront distribution exposing frontend
+  CFDistributionForLogin:
+    Type: 'AWS::CloudFront::Distribution'
+    DependsOn:
+      - CFOriginAccessIdentityForLogin
+    Properties:
+      DistributionConfig:
+        Origins:
+        - DomainName: !GetAtt LoginFrontendBucket.RegionalDomainName
+          Id: myS3Origin
+          S3OriginConfig:
+            OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CFOriginAccessIdentityForLogin}"
+        Enabled: 'true'
+        DefaultRootObject: index.html
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 10
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 10
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          TargetOriginId: myS3Origin
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+        PriceClass: PriceClass_All
+        Logging:
+          Bucket: !GetAtt LoggingBucket.RegionalDomainName
+  CFDistributionForMember:
+    #checkov:skip=CKV_AWS_68: "For demo purposes and to reduce cost, no WAF is configured"
+    Type: 'AWS::CloudFront::Distribution'
+    DependsOn:
+      - CFOriginAccessIdentityForMember
+    Properties:
+      DistributionConfig:
+        Origins:
+        - DomainName: !GetAtt MemberFrontendBucket.RegionalDomainName
+          Id: myS3Origin
+          S3OriginConfig:
+            OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CFOriginAccessIdentityForMember}"
+        Enabled: 'true'
+        DefaultRootObject: index.html
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 10
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 10
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          TargetOriginId: myS3Origin
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+        PriceClass: PriceClass_All
+        Logging:
+          Bucket: !GetAtt LoggingBucket.RegionalDomainName
+          Prefix: 'cloudfront-access-logs'
+  # The Amazon CloudFront origin access identity
+  CFOriginAccessIdentityForLogin:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    DependsOn:
+      - LoginFrontendBucket
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'access-identity-react'
+  CFOriginAccessIdentityForMember:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    DependsOn:
+      - MemberFrontendBucket
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'access-identity-react'
+Outputs:
+  ArtifactBucket:
+    Description: Bucket name
+    Value: !Ref ArtifactBucket
+  LoginFrontendBucket:
+    Description: Bucket name
+    Value: !Ref LoginFrontendBucket
+  MemberFrontendBucket:
+    Description: Bucket name
+    Value: !Ref MemberFrontendBucket
+  CloudfrontIDMember:
+    Description: CloudfrontID
+    Value: !Ref CFDistributionForMember
+  CloudfrontIDLogin:
+    Description: CloudfrontID
+    Value: !Ref CFDistributionForLogin

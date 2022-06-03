@@ -1,0 +1,213 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create RDS SQL Server
+Parameters:
+  DBAllocatedStorage:
+    ConstraintDescription: must be between 20 and 1024 GiB. If Iops specified, AllocatedStorage
+      must be at least 100 GiB and with minimum Iops value of 1000
+    Default: '20'
+    Description: The size of the database in gigabytes (GiB)
+    MaxValue: '1024'
+    MinValue: '20'
+    Type: Number
+  DBAutoMinorVersionUpgrade:
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Default: 'true'
+    Description: Select true/false to setup Auto Minor Version upgrade
+    Type: String
+  DBBackupRetentionPeriod:
+    Default: '7'
+    Description: The number of days for which automatic DB snapshots are retained.
+    Type: String
+  DBInstanceIdentifier:
+    Default: 'user-micros'
+    Description: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. 
+      If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the DB instance.
+    Type: String    
+  DBInstanceClass:
+    AllowedValues:
+    - db.t3.xlarge
+    - db.t3.2xlarge	
+    ConstraintDescription: Must select a valid database instance type.
+    Default: db.t3.xlarge
+    Description: The name of the compute and memory capacity class of the DB instance.
+    Type: String
+  DBIops:
+    AllowedValues:
+    - '1000'
+    - '2000'
+    - '3000'
+    - '4000'
+    - '5000'
+    - '6000'
+    - '7000'
+    - '8000'
+    - '9000'
+    - '10000'
+    ConstraintDescription: '1000 Iops min and increased in 1K increments. '
+    Default: '1000'
+    Description: DB Iops. Used only when io1 specified for the StorageType property
+    Type: Number
+  DBEngineVersion:
+    AllowedValues:
+    - '15.00.4198.2.v1'
+    - '15.00.4153.1.v1'
+    Default: '15.00.4153.1.v1'
+    Description: DB EngineVersion
+    Type: String
+  DBMasterUserPassword:
+    AllowedPattern: (?=^.{6,255}$)((?=.*\d)(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[^A-Za-z0-9])(?=.*[a-z])|(?=.*[^A-Za-z0-9])(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9]))^.*
+    ConstraintDescription: At least 8 printable ASCII characters. Can't contain any of the (slash), (single quote), (double quote) and @ (at sign).
+    Description: The database admin account password. At least 8 printable ASCII characters. Can't contain any of the (slash), (single quote), (double quote) and @ (at sign).
+    MaxLength: '64'
+    MinLength: '8'
+    NoEcho: 'True'
+    Type: String
+  DBMasterUsername:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+    Default: admin
+    Description: The database admin account username. 1 to 128 alphanumeric characters. First character must be a letter.
+    MaxLength: '128'
+    MinLength: '1'
+    Type: String
+  InitinalDBName:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+    Default: admin
+    Description: Initial database name. Specify a string of up to 64 alpha-numeric characters that define the name given to a database that Amazon RDS creates when it creates the DB instance
+    MaxLength: '128'
+    MinLength: '1'
+    Type: String    
+  DBMultiAZ:
+    AllowedValues:
+    - 'true'
+    - 'false'
+    Default: 'true'
+    Description: Specifies if the database instance is a multiple Availability Zone deployment.
+    Type: String
+  DBStorageType:
+    AllowedValues:
+    - standard
+    - gp2
+    - io1
+    Default: standard
+    Description: The storage type associated with this database instance
+    Type: String
+  Subnets:
+    ConstraintDescription: must be list of existing subnet Ids
+    Description: Atleast two existing Subnets in separate Availability Zones your Virtual Private Cloud (VPC)
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: ''
+  ProjectName:
+    Type: String
+    Description: Project Name
+  AreaName:
+    Type: String
+    Description: Area Code (ex:eu, us, jp)
+  VpcEnv:
+    Type: String
+    Description: Environment of VPC (test, stag or prod)
+  VPCID:
+    Description: "Enter the ID of VPC"
+    Type: AWS::EC2::VPC::Id    
+Conditions:
+  IOPSStorageType:
+    !Equals
+    - !Ref DBStorageType
+    - io1
+Resources:
+  SgRds:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPCID
+      GroupName: !Join
+        - '-'
+        - - !Ref ProjectName
+          - !Ref VpcEnv
+          - !Ref AreaName
+          - sg
+          - rds
+      GroupDescription: Security group for rds
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref ProjectName
+              - !Ref VpcEnv
+              - !Ref AreaName
+              - sg
+              - rds
+        - Key: Environment
+          Value: !Ref VpcEnv
+        - Key: Area
+          Value: !Ref AreaName
+  SgRdsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SgRds
+      IpProtocol: tcp
+      FromPort: '5432'
+      ToPort: '5432'
+      SourceSecurityGroupId: !Ref ContainerSecurityGroup
+    
+  SQLServerDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets available for the RDS SQLSERVER DB Instance
+      SubnetIds: !Ref Subnets
+  SQLServerDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: SQL Server DB Parameter Group 
+      Family: SQL Server 2019
+      Tags:
+        - Key: Group Name
+          Value: !Join
+            - '-'
+            - - !Ref ProjectName
+              - !Ref VpcEnv
+              - !Ref AreaName
+              - rds
+              - parametergroup
+        - Key: Environment
+          Value: !Ref VpcEnv
+        - Key: Area
+          Value: !Ref AreaName
+  SQLServerDB:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - SQLServerDBParameterGroup     
+    Properties:
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      AllocatedStorage: !Ref DBAllocatedStorage
+      DBInstanceClass: !Ref DBInstanceClass
+      DBName: !Ref InitinalDBName
+      Engine: sqlserver-se
+      EngineVersion: !Ref DBEngineVersion
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterUserPassword
+      DBSubnetGroupName: !Ref SQLServerDBSubnetGroup
+      VPCSecurityGroups:
+      - !Ref SgRds
+      MultiAZ: !Ref DBMultiAZ
+      StorageType: !Ref DBStorageType
+      AutoMinorVersionUpgrade: !Ref DBAutoMinorVersionUpgrade
+      BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
+      DBParameterGroupName: !Ref SQLServerDBParameterGroup
+      Iops:
+        !If
+        - IOPSStorageType
+        - !Ref DBIops
+        - !Ref AWS::NoValue
+      Tags:
+      - Key: Name
+        Value: !Sub ${ProjectName}-${VpcEnv}-${AreaName}-rds
+Outputs:
+  RDSEndPointAddress:
+    Description: RDS SQL Server Endpoint to connect
+    Value: !Sub ${SQLServerDB.Endpoint.Address}
+  RDSEndPointPort:
+    Description: RDS SQL Server Port to connect
+    Value: !Sub ${SQLServerDB.Endpoint.Port}

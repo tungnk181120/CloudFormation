@@ -1,0 +1,14 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create ECS
+Parameters:
+  ProjectName:
+    Description: "Input Project Name"
+    Type: String
+  VpcEnv:
+    Description: "VPC Environment"
+    Type: String
+Resources:
+  ECRLogin:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${ProjectName}-${VpcEnv}-ecr-login

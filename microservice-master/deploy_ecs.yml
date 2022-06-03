@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create ECS
+Parameters:
+  ProjectName:
+    Description: "Input Project Name"
+    Type: String
+  VpcEnv:
+    Description: "VPC Environment"
+    Type: String
+  VPCID:
+    Description: "ID of VPC"
+    Type: String
+  PublicSubnet1:
+    Description: "ID of the Public subnet 1"
+    Type: String
+  PublicSubnet2:
+    Description: "ID of the Public subnet 2"
+    Type: String
+  SecurityGroup:
+    Description: "Security Group for ECS Service"
+    Type: String
+  ECSClusterName:
+    Description: "ECS Cluster Name"
+    Type: String
+  DesiredLoginCount:
+    Type: Number
+    Default: 1
+  vCPUForLogin: 
+    Description: "vCPU For Login Container"  
+    Type: String
+  MermoryForLogin:
+    Description: "vCPU For Login Container"
+    Type: String
+  LoginPort:
+    Description: "Login Container Port Login"
+    Type: String
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties: 
+      ClusterName: !Sub ${ProjectName}-${VpcEnv}-ecs-cluster-${ECSClusterName}
+  TaskDefinitionForLogin:
+    Type: AWS::ECS::TaskDefiniton
+    Properties:
+      Family: !Sub ${ProjectName}-${VpcEnv}-ecs-login
+      TaskRoleArn: !Ref IamRoleTaskDefinition
+      ExecutionRoleArn: !Ref IamRoleTaskDefinition
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - 'FARGATE'
+      ContainerDefinitions:
+        - Name: ${ProjectName}-${VpcEnv}-ecs-login
+          #image
+          Image: 'image'
+          LinuxParameters:
+            InitProcessEnabled: true          
+          PortMappings:
+            - ContainerPort: !Ref LoginPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub /ecs/${ProjectName}-${VpcEnv}-ecs-login
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: ecs
+      Cpu: !Ref vCPUForLogin
+      Memory: !Ref MermoryForLogin
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
+      
+  ECSLoginService: 
+    Type: AWS::ECS::Service
+    Properties: 
+      ServiceName: !Sub ${ProjectName}-${VpcEnv}-ecs-login-service-${ECSClusterName}
+      Cluster: !Ref ECSCluster
+      DesiredCount: !Ref DesiredLoginCount
+      TaskDefinition: !Ref TaskDefinitionForLogin
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref SecurityGroup
+          Subnets: [!Ref PublicSubnet1, !Ref PublicSubnet2]
+
+  # Task definition Role
+  IamRoleTaskDefinition:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs.amazonaws.com
+                - ecs-tasks.amazonaws.com
+            Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly'
+        - 'arn:aws:iam::aws:policy/CloudWatchFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonECS_FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+      Policies:
+        - PolicyName: !Sub ${ProjectName}-${VpcEnv}-${AreaName}-taskdef
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - "ssm:GetParameters"
+                  - "secretsmanager:GetSecretValue"
+                Resource: "*"
+      RoleName: !Sub ${ProjectName}-${VpcEnv}-iam-role-taskdef
